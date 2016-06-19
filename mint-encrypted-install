@@ -7,6 +7,17 @@ function enter-to-continue() {
     echo
 }
 
+function yn-y() {
+    # Y is the default
+    local REPLY
+    read -p "${1} [Y/n] " -r
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
 function read-existing-path() {
     read -r -p "${1}: " name || fail
     if [ -z "${name}" ] || [ ! -e "${name}" ]; then
@@ -22,6 +33,10 @@ function fail() {
     exit 1
 }
 
+if ! lsb_release -a | grep sarah &>/dev/null; then
+    echo "You are not running on Linux Mint 18."
+    exit 1
+fi
 
 cat <<EOF &&
 This script will guide you through the installation of Linux Mint 18,
@@ -54,16 +69,26 @@ EOF
 
 enter-to-continue &&
 
-# shellcheck disable=SC2015
-read -r -p "Does your machine use BIOS or UEFI firmware? Enter 'bios' or 'uefi' (without quotes): " FIRMWARE || fail
-if [ "${FIRMWARE}" != 'bios' ] && [ "${FIRMWARE}" != 'uefi' ]; then
-    echo "Unrecognised firmware type '${FIRMWARE}'"
-    fail
+if [ -f '/sys/firmware/efi' ]; then
+    FIRMWARE='uefi'
+else
+    FIRMWARE='bios'
+fi
+
+cat <<EOF
+Your firmware is '${FIRMWARE}'. If that doesn't sound right (i.e. you
+wanted to boot in UEFI mode but booted in BIOS mode instead), type 'n'
+at the prompt and reboot in the correct mode.
+
+EOF
+
+if ! yn-y "Is the firmware mode correct?"; then
+    exit 0
 fi
 
 
 # Tutorial step 1
-cat <<EOF &&
+cat <<EOF
 
 
 The graphical installer is about to open. When it does, proceed as far
@@ -80,20 +105,32 @@ never done this before)
 Use the installer to create a new partition with the desired
 properties, and set 'use as' to 'physical volume for encryption'.
 
-If your firmware is BIOS:
+EOF
+
+if [ "${FIRMWARE}" = 'bios' ]; then
+cat <<EOF
+Your firmware is BIOS:
  - if your disk has a GPT partition table, you need to create a 16 MB
    partition with type 'Reserved BIOS boot area' at the end of the
    disk, in addition to the encrypted partition (if you are
    dual-booting, the previous OS may have already done this).
  - if your disk has an MBR partition table, you don't need any extra
    partitions.
-
-If your firmware is UEFI:
+EOF
+elif [ "${FIRMWARE}" = 'uefi' ]; then
+cat <<EOF
+Your firmware is UEFI:
  - you need to create a 512 MB partition with type 'EFI boot
    partition' at the beginning of the disk, in addition to the
    encrypted partition (if you are dual-booting, the previous OS may
    have already done this). Take a note of the name of this partition
    (e.g. something like /dev/sda1), you will need it later.
+EOF
+else
+    fail
+fi
+
+cat <<EOF
 
 Click 'OK', wait for the encrypted partition to be created, and
 observe the name it is given - this will be something like
@@ -118,7 +155,7 @@ Leave the installer open and open a new terminal.
 
 Open the encrypted volume with:
 
-    sudo cryptsetup open <partition>_crypt /dev/<partition>
+    sudo cryptsetup open /dev/<partition> <partition>_crypt
 
 where <partition> should be replaced by the appropriate partition. If
 you are using this option, you will already know which partition to
@@ -227,12 +264,22 @@ sudo mount --bind /proc /mnt/proc &&
 sudo mount --bind /run /mnt/run || fail
 
 if [ "${FIRMWARE}" = 'uefi' ]; then
-    sudo mount "${UEFIBOOT}" /mnt/boot/efi || fail
+    sudo mount "${UEFIBOOT}" /mnt/boot/efi &&
+
+    # Since we don't tell the installer to install a bootloader, it
+    # doesn't know what kind we need. It therefore by default installs
+    # the packages for a bios bootloader - but we need the efi ones
+    # instead.
+    sudo chroot /mnt apt-get update &&
+    # shellcheck disable=SC2015
+    sudo chroot /mnt apt-get -y install grub-efi || fail
 fi
 
 KEYFILE='crypto_keyfile.bin' &&
 
 cat <<EOF &&
+
+
 If you have an existing keyfile from a previous installation which can
 already be used to unlock the container, open another terminal now and
 copy it to ~/${KEYFILE}
@@ -270,14 +317,8 @@ sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub &&
 sudo sed -i "s|GRUB_CMDLINE_LINUX=\"\"|GRUB_CMDLINE_LINUX=\"cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}")\"|" /mnt/etc/default/grub || fail
 
 
-# Not needed in Mint 18 - the bug it fixes is fixed upstream now
-# sudo mv /mnt/etc/grub.d/00_header /mnt/etc/grub.d/00_header.orig
-# sudo wget -O /mnt/etc/grub.d/00_header https://gist.githubusercontent.com/rarylson/da6b77ad6edde25529b2/raw/99f266a10e663e1829efc25eca6eddb9412c6fdc/00_header_patched
-# sudo chmod -x /mnt/etc/grub.d/00_header.orig
-# sudo chmod +x /mnt/etc/grub.d/00_header
-
-
-BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader should be installed; typically /dev/sda, /dev/sdb, or something similar.")"
+echo
+BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader should be installed; typically /dev/sda, /dev/sdb, or something similar")"
 
 
 if [ "${FIRMWARE}" = 'bios' ]; then
