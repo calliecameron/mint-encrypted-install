@@ -54,6 +54,13 @@ EOF
 
 enter-to-continue &&
 
+# shellcheck disable=SC2015
+read -r -p "Does your machine use BIOS or UEFI firmware? Enter 'bios' or 'uefi' (without quotes): " FIRMWARE || fail
+if [ "${FIRMWARE}" != 'bios' ] && [ "${FIRMWARE}" != 'uefi' ]; then
+    echo "Unrecognised firmware type '${FIRMWARE}'"
+    fail
+fi
+
 
 # Tutorial step 1
 cat <<EOF &&
@@ -70,6 +77,21 @@ never done this before)
 
 Use the installer to create a new partition with the desired
 properties, and set 'use as' to 'physical volume for encryption'.
+
+If your firmware is BIOS:
+ - if your disk has a GPT partition table, you need to create a 16 MB
+   partition with type 'Reserved BIOS boot area' at the end of the
+   disk, in addition to the encrypted partition (if you are
+   dual-booting, the previous OS may have already done this).
+ - if your disk has an MBR partition table, you don't need any extra
+   partitions.
+
+If your firmware is UEFI:
+ - you need to create a 512 MB partition with type 'EFI boot
+   partition' at the beginning of the disk, in addition to the
+   encrypted partition (if you are dual-booting, the previous OS may
+   have already done this). Take a note of the name of this partition
+   (e.g. something like /dev/sda1), you will need it later.
 
 Click 'OK', wait for the encrypted partition to be created, and
 observe the name it is given - this will be something like
@@ -119,7 +141,11 @@ enter-to-continue || fail
 
 CRYPTDEV="$(read-existing-path "Enter the name of the encrypted partition that you noted earlier; this will be something like /dev/mapper/sda1_crypt, but the number may be different. MAKE SURE this is right, or the next set of instructions will probably make you erase your drive!")"
 
-CRYPTPART="$(read-existing-path "Enter the name of the physical partition the encrypted container was created on. If the encrypted container is /dev/mapper/sda1_crypt, then this will be /dev/sda1 (i.e. the 'sda1' part matches)")"
+CRYPTPART="$(read-existing-path "Enter the name of the physical partition the encrypted container was created on; e.g. if the encrypted container is /dev/mapper/sda1_crypt, then this will be /dev/sda1 (i.e. the 'sda1' part matches)")"
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    UEFIBOOT="$(read-existing-path "Enter the name of the UEFI boot partition that you noted earlier; this will be something like /dev/sda1")"
+fi
 
 
 # Tutorial step 2
@@ -184,7 +210,12 @@ sudo mount --bind /dev /mnt/dev &&
 sudo mount --bind /dev/pts /mnt/dev/pts &&
 sudo mount --bind /sys /mnt/sys &&
 sudo mount --bind /proc /mnt/proc &&
-sudo mount --bind /run /mnt/run &&
+# shellcheck disable=SC2015
+sudo mount --bind /run /mnt/run || fail
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    sudo mount "${UEFIBOOT}" /mnt/boot/efi || fail
+fi
 
 KEYFILE='crypto_keyfile.bin' &&
 
@@ -219,6 +250,7 @@ echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}
 sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u &&
 
+
 sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub &&
 sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub &&
 # shellcheck disable=SC2015
@@ -234,10 +266,24 @@ sudo sed -i "s|GRUB_CMDLINE_LINUX=\"\"|GRUB_CMDLINE_LINUX=\"cryptdevice=${CRYPTP
 
 BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader should be installed; typically /dev/sda, /dev/sdb, or something similar.")"
 
-sudo chroot /mnt update-grub &&
-sudo chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg &&
-# shellcheck disable=SC2015
-sudo chroot /mnt grub-install "${BOOTLOADER}" || fail
+
+if [ "${FIRMWARE}" = 'bios' ]; then
+    sudo chroot /mnt update-grub &&
+    sudo chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg &&
+    # shellcheck disable=SC2015
+    sudo chroot /mnt grub-install "${BOOTLOADER}" || fail
+elif [ "${FIRMWARE}" = 'uefi' ]; then
+    sudo chroot /mnt update-grub &&
+    sudo mkdir -p /mnt/boot/efi/EFI/mint &&
+    sudo chroot /mnt grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
+    echo 'configfile ${cmdpath}/grub.cfg' | sudo tee /mnt/tmp/grub.cfg &>/dev/null &&
+    sudo chroot /mnt grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
+    # shellcheck disable=SC2015
+    sudo chroot /mnt efibootmgr -c -d "${BOOTLOADER}" -p 1 -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+else
+    # Should never get here
+    fail
+fi
 
 
 # The problematic file doesn't seem to be present on Mint 18, but just in case...
@@ -247,6 +293,10 @@ if [ -e '/mnt/sbin/initctl.REAL' ]; then
     sudo mv /mnt/sbin/initctl.REAL /mnt/sbin/initctl || fail
 fi
 
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    sudo umount /mnt/boot/efi || fail
+fi
 
 sudo umount /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
 
