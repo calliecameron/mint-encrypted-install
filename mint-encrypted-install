@@ -145,6 +145,11 @@ CRYPTPART="$(read-existing-path "Enter the name of the physical partition the en
 
 if [ "${FIRMWARE}" = 'uefi' ]; then
     UEFIBOOT="$(read-existing-path "Enter the name of the UEFI boot partition that you noted earlier; this will be something like /dev/sda1")"
+    read -r -p "Enter the number of the UEFI boot partition that you noted earlier, e.g. if the partition is /dev/sda1, enter 1" UEFINUMBER || fail
+    if [ -z "${UEFINUMBER}" ]; then
+        echo 'Invalid partition number'
+        fail
+    fi
 fi
 
 
@@ -279,7 +284,7 @@ elif [ "${FIRMWARE}" = 'uefi' ]; then
     echo 'configfile ${cmdpath}/grub.cfg' | sudo tee /mnt/tmp/grub.cfg &>/dev/null &&
     sudo chroot /mnt grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
     # shellcheck disable=SC2015
-    sudo chroot /mnt efibootmgr -c -d "${BOOTLOADER}" -p 1 -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+    sudo chroot /mnt efibootmgr -c -d "${BOOTLOADER}" -p "${UEFINUMBER}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
 else
     # Should never get here
     fail
