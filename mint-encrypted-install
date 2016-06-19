@@ -1,0 +1,261 @@
+#!/bin/bash
+
+function enter-to-continue() {
+    echo &&
+    read -r -p "Press ENTER to continue..." &&
+    echo &&
+    echo
+}
+
+function read-existing-path() {
+    read -r -p "${1}: " name || fail
+    if [ -z "${name}" ] || [ ! -e "${name}" ]; then
+        echo "That file doesn't exist!" 1>&2
+        exit 1
+    else
+        echo "${name}"
+    fi
+}
+
+function fail() {
+    echo -e "\e[31mSomething went wrong!\e[0m"
+    exit 1
+}
+
+
+cat <<EOF &&
+This script will guide you through the installation of Linux Mint 18,
+fully encrypted (including /boot) using LVM inside LUKS. This works
+for both single- and dual-boot setups, and machines with either BIOS
+or UEFI. You can use this either to set up encryption from scratch, or
+to install/reinstall another Linux inside an encrypted container you
+set up in a previous run of this script.
+
+You *MUST* be running this on the Mint live USB, before
+installing. Bad things could happen if you run this on an installed
+Linux system.
+
+Based on tutorials by Naldi Stefano:
+https://community.linuxmint.com/tutorial/view/2026
+https://community.linuxmint.com/tutorial/view/2231
+https://community.linuxmint.com/tutorial/view/2061
+https://community.linuxmint.com/tutorial/view/2191
+
+This is an advanced configuration that assumes you are comfortable
+with the terminal, shell scripts, partitioning, LVM, LUKS, and
+installing and managing normal non-encrypted Linux systems. If not,
+read the tutorials above and make sure you know what you are doing
+before continuing!
+
+*PLEASE BE CAREFUL*! If you give incorrect inputs to this script, you
+could end up erasing your hard drive. Whatever you want to use it
+for, test it in a virtual machine first!
+EOF
+
+enter-to-continue &&
+
+
+# Tutorial step 1
+cat <<EOF &&
+The graphical installer is about to open. When it does, proceed as far
+as the 'Installation type' page, and select 'Something else'. Click
+next.
+
+You now have two options, depending on what you want to do:
+
+
+----------------------------------------------------------------------
+1. Creating a new encrypted container (e.g. on a machine where you have
+never done this before)
+
+Use the installer to create a new partition with the desired
+properties, and set 'use as' to 'physical volume for encryption'.
+
+Click 'OK', wait for the encrypted partition to be created, and
+observe the name it is given - this will be something like
+'/dev/mapper/sda1_crypt', depending on the partition number used. Keep
+a note of this - you will need it later.
+
+Click 'Back' to return to the 'Installation Type' page.
+
+Leave the installer open and switch back to this terminal.
+
+
+----------------------------------------------------------------------
+OR
+
+2. Installing or reinstalling inside an existing encrypted container
+(e.g. one created by a previous run of this script)
+
+Click 'Back' in the installer to return to the 'Installation Type'
+page.
+
+Leave the installer open and open a new terminal.
+
+Open the encrypted volume with:
+
+    sudo cryptsetup open <partition>_crypt /dev/<partition>
+
+where <partition> should be replaced by the appropriate partition. If
+you are using this option, you will already know which partition to
+use.
+
+
+----------------------------------------------------------------------
+
+
+Press ENTER and the installer will open, and do as instructed above.
+EOF
+
+enter-to-continue || fail
+sh -c 'ubiquity -b gtk_ui' &
+
+cat <<EOF &&
+Once you have done all that, press ENTER again to continue.
+EOF
+
+enter-to-continue || fail
+
+
+CRYPTDEV="$(read-existing-path "Enter the name of the encrypted partition that you noted earlier; this will be something like /dev/mapper/sda1_crypt, but the number may be different. MAKE SURE this is right, or the next set of instructions will probably make you erase your drive!")"
+
+CRYPTPART="$(read-existing-path "Enter the name of the physical partition the encrypted container was created on. If the encrypted container is /dev/mapper/sda1_crypt, then this will be /dev/sda1 (i.e. the 'sda1' part matches)")"
+
+
+# Tutorial step 2
+cat <<EOF &&
+Now you need to create logical volumes inside the encrypted
+container. Open another terminal.
+
+For a new container, you will need to run something like the following
+(note that these are EXAMPLES, and your sizes and names may vary!)
+
+    sudo pvcreate ${CRYPTDEV}
+    sudo vgcreate mint ${CRYPTDEV}
+
+    sudo lvcreate -L 4G -n swap mint
+    sudo lvcreate -l 100%FREE -n root mint
+
+If you are using an existing container, you will know which logical
+volumes you need; now is the time to set them up.
+
+Once you have done that, come back to this terminal and press ENTER to
+continue.
+EOF
+
+enter-to-continue &&
+
+
+# Tutorial step 3
+cat <<EOF &&
+Switch back into the installer. Select 'Something else' and click
+'Continue'.
+
+Set up your partitions. Using the example names from the previous
+step, you will want to use:
+
+/dev/mapper/mint-root as an Ext4 journalling file system, formatted,
+and mounted at /
+
+/dev/mapper/mint-swap as swap area
+
+(If there is a box at the bottom asking where to install the
+bootloader, something has gone wrong!)
+
+Click 'Install now', and continue with the rest of the installer.
+
+When the installer finishes, click 'Continue testing', come back to
+this terminal, and press ENTER to continue.
+
+
+Waiting for installer to finish...
+EOF
+
+# shellcheck disable=SC2015
+wait &&
+enter-to-continue || fail
+
+
+# Tutorial step 4
+ROOTDEV="$(read-existing-file "Enter the path of the device where you installed the root partition; using the example names this would be /dev/mapper/mint-root, but yours might be different. MAKE SURE this is right, or it will break your new installation!")"
+
+sudo mount "${ROOTDEV}" /mnt &&
+sudo mount --bind /dev /mnt/dev &&
+sudo mount --bind /dev/pts /mnt/dev/pts &&
+sudo mount --bind /sys /mnt/sys &&
+sudo mount --bind /proc /mnt/proc &&
+sudo mount --bind /run /mnt/run &&
+
+KEYFILE='crypto_keyfile.bin' &&
+
+cat <<EOF &&
+If you have an existing keyfile from a previous installation which can
+already be used to unlock the container, open another terminal now and
+copy it to ~/${KEYFILE}
+
+Otherwise, just press ENTER to continue.
+EOF
+
+enter-to-continue || fail
+
+if [ -f "${HOME}/${KEYFILE}" ]; then
+    sudo cp "${HOME}/${KEYFILE}" "/mnt/${KEYFILE}" || fail
+else
+    # shellcheck disable=SC2015
+    sudo dd bs=512 count=4 if=/dev/urandom of="/mnt/${KEYFILE}" &&
+    sudo cryptsetup luksAddKey "${CRYPTPART}" "/mnt/${KEYFILE}" || fail
+fi
+
+sudo chmod 000 "/mnt/${KEYFILE}" &&
+sudo chmod -R go-rwx /mnt/boot &&
+
+
+echo "cp /${KEYFILE} \"\${DESTDIR}\"" | sudo tee /mnt/etc/initramfs-tools/hooks/crypto_keyfile &>/dev/null &&
+sudo chmod +x /mnt/etc/initramfs-tools/hooks/crypto_keyfile &&
+
+echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}") /${KEYFILE} luks,keyscript=/bin/cat" | sudo tee -a /mnt/etc/crypttab &>/dev/null &&
+
+
+sudo chroot /mnt locale-gen --purge --no-archive &&
+sudo chroot /mnt update-initramfs -u &&
+
+sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub &&
+sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub &&
+# shellcheck disable=SC2015
+sudo sed -i "s|GRUB_CMDLINE_LINUX=\"\"|GRUB_CMDLINE_LINUX=\"cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}")\"|" /mnt/etc/default/grub || fail
+
+
+# Not needed in Mint 18 - the bug it fixes is fixed upstream now
+# sudo mv /mnt/etc/grub.d/00_header /mnt/etc/grub.d/00_header.orig
+# sudo wget -O /mnt/etc/grub.d/00_header https://gist.githubusercontent.com/rarylson/da6b77ad6edde25529b2/raw/99f266a10e663e1829efc25eca6eddb9412c6fdc/00_header_patched
+# sudo chmod -x /mnt/etc/grub.d/00_header.orig
+# sudo chmod +x /mnt/etc/grub.d/00_header
+
+
+BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader should be installed; typically /dev/sda, /dev/sdb, or something similar.")"
+
+sudo chroot /mnt update-grub &&
+sudo chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg &&
+# shellcheck disable=SC2015
+sudo chroot /mnt grub-install "${BOOTLOADER}" || fail
+
+
+# The problematic file doesn't seem to be present on Mint 18, but just in case...
+if [ -e '/mnt/sbin/initctl.REAL' ]; then
+    sudo mv /mnt/sbin/initctl /mnt/sbin/initctl.orig &&
+    # shellcheck disable=SC2015
+    sudo mv /mnt/sbin/initctl.REAL /mnt/sbin/initctl || fail
+fi
+
+
+sudo umount /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
+
+
+cat <<EOF &&
+Congratulations! The installation is now finished.
+
+You should now be able to reboot, and should be prompted for the
+password to unlock the encrypted partition at boot.
+EOF
+
+enter-to-continue || fail
