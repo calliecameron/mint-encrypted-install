@@ -64,6 +64,8 @@ fi
 
 # Tutorial step 1
 cat <<EOF &&
+
+
 The graphical installer is about to open. When it does, proceed as far
 as the 'Installation type' page, and select 'Something else'. Click
 next.
@@ -140,12 +142,15 @@ enter-to-continue || fail
 
 
 CRYPTDEV="$(read-existing-path "Enter the name of the encrypted partition that you noted earlier; this will be something like /dev/mapper/sda1_crypt, but the number may be different. MAKE SURE this is right, or the next set of instructions will probably make you erase your drive!")"
+echo
 
 CRYPTPART="$(read-existing-path "Enter the name of the physical partition the encrypted container was created on; e.g. if the encrypted container is /dev/mapper/sda1_crypt, then this will be /dev/sda1 (i.e. the 'sda1' part matches)")"
+echo
 
 if [ "${FIRMWARE}" = 'uefi' ]; then
     UEFIBOOT="$(read-existing-path "Enter the name of the UEFI boot partition that you noted earlier; this will be something like /dev/sda1")"
-    read -r -p "Enter the number of the UEFI boot partition that you noted earlier, e.g. if the partition is /dev/sda1, enter 1" UEFINUMBER || fail
+    echo
+    read -r -p "Enter the number of the UEFI boot partition that you noted earlier, e.g. if the partition is /dev/sda1, enter 1: " UEFINUMBER || fail
     if [ -z "${UEFINUMBER}" ]; then
         echo 'Invalid partition number'
         fail
@@ -155,6 +160,8 @@ fi
 
 # Tutorial step 2
 cat <<EOF &&
+
+
 Now you need to create logical volumes inside the encrypted
 container. Open another terminal.
 
@@ -180,7 +187,8 @@ enter-to-continue &&
 # Tutorial step 3
 cat <<EOF &&
 Switch back into the installer. Select 'Something else' and click
-'Continue'.
+'Continue'. You may need to do 'Back' and 'Something else', 'Continue'
+several times before your logical volumes show up.
 
 Set up your partitions. Using the example names from the previous
 step, you will want to use:
@@ -208,7 +216,7 @@ enter-to-continue || fail
 
 
 # Tutorial step 4
-ROOTDEV="$(read-existing-file "Enter the path of the device where you installed the root partition; using the example names this would be /dev/mapper/mint-root, but yours might be different. MAKE SURE this is right, or it will break your new installation!")"
+ROOTDEV="$(read-existing-path "Enter the path of the device where you installed the root partition; using the example names this would be /dev/mapper/mint-root, but yours might be different. MAKE SURE this is right, or it will break your new installation!")" &&
 
 sudo mount "${ROOTDEV}" /mnt &&
 sudo mount --bind /dev /mnt/dev &&
@@ -311,6 +319,13 @@ Congratulations! The installation is now finished.
 
 You should now be able to reboot, and should be prompted for the
 password to unlock the encrypted partition at boot.
+
+For extra tips, see the appendices of the tutorials at:
+https://community.linuxmint.com/tutorial/view/2026
+https://community.linuxmint.com/tutorial/view/2231
+https://community.linuxmint.com/tutorial/view/2061
+https://community.linuxmint.com/tutorial/view/2191
+
 EOF
 
 enter-to-continue || fail
