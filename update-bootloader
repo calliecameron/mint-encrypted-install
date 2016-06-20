@@ -1,0 +1,108 @@
+#!/bin/bash
+
+function enter-to-continue() {
+    echo &&
+    read -r -p "Press ENTER to continue..." &&
+    echo &&
+    echo
+}
+
+function yn-y() {
+    # Y is the default
+    local REPLY
+    read -p "${1} [Y/n] " -r
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+function yn-n() {
+    # N is the default
+    local REPLY
+    read -p "${1} [y/N] " -r
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function read-existing-path() {
+    read -r -p "${1}: " name || fail
+    if [ -z "${name}" ] || [ ! -e "${name}" ]; then
+        echo "That file doesn't exist!" 1>&2
+        exit 1
+    else
+        echo "${name}"
+    fi
+}
+
+function fail() {
+    echo -e "\e[31mSomething went wrong!\e[0m"
+    exit 1
+}
+
+
+cat <<EOF
+This script will update the iniramfs and bootloader, from inside a
+running Mint installation previously set up using
+mint-encrypted-install.
+EOF
+
+if ! yn-n "Continue?"; then
+    exit 0
+fi
+
+
+# Not completely foolproof, but should do the job...
+if ! lsb_release -a 2>/dev/null | grep sarah &>/dev/null || type ubiquity &>/dev/null; then
+cat <<EOF
+
+
+You are not running on an installed Linux Mint 18 system. Cannot go
+any further.
+EOF
+    exit 1
+fi
+
+
+if [ -f '/sys/firmware/efi' ]; then
+    FIRMWARE='uefi'
+else
+    FIRMWARE='bios'
+fi
+
+
+sudo update-initramfs -u || fail
+
+
+BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically /dev/sda, /dev/sdb, or something similar")"
+
+
+if [ "${FIRMWARE}" = 'bios' ]; then
+    sudo update-grub &&
+    sudo grub-mkconfig -o /boot/grub/grub.cfg &&
+    # shellcheck disable=SC2015
+    sudo grub-install "${BOOTLOADER}" || fail
+elif [ "${FIRMWARE}" = 'uefi' ]; then
+    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is ${BOOTLOADER}1, enter 1: " UEFINUMBER || fail
+    if [ -z "${UEFINUMBER}" ]; then
+        echo 'Invalid partition number'
+        fail
+    fi
+
+    sudo update-grub &&
+    sudo mkdir -p /boot/efi/EFI/mint &&
+    sudo grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
+    echo "configfile \${cmdpath}/grub.cfg" | sudo tee /tmp/grub.cfg &>/dev/null &&
+    sudo grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
+    # shellcheck disable=SC2015
+    sudo efibootmgr -c -d "${BOOTLOADER}" -p "${UEFINUMBER}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+else
+    # Should never get here
+    fail
+fi
+
+echo 'Finished'

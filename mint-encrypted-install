@@ -18,6 +18,17 @@ function yn-y() {
     fi
 }
 
+function yn-n() {
+    # N is the default
+    local REPLY
+    read -p "${1} [y/N] " -r
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 function read-existing-path() {
     read -r -p "${1}: " name || fail
     if [ -z "${name}" ] || [ ! -e "${name}" ]; then
@@ -369,7 +380,7 @@ elif [ "${FIRMWARE}" = 'uefi' ]; then
     sudo chroot /mnt update-grub &&
     sudo mkdir -p /mnt/boot/efi/EFI/mint &&
     sudo chroot /mnt grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
-    echo 'configfile ${cmdpath}/grub.cfg' | sudo tee /mnt/tmp/grub.cfg &>/dev/null &&
+    echo "configfile \${cmdpath}/grub.cfg" | sudo tee /mnt/tmp/grub.cfg &>/dev/null &&
     sudo chroot /mnt grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
     # shellcheck disable=SC2015
     sudo chroot /mnt efibootmgr -c -d "${BOOTLOADER}" -p "${UEFINUMBER}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
