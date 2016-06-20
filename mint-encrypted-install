@@ -33,10 +33,6 @@ function fail() {
     exit 1
 }
 
-if ! lsb_release -a | grep sarah &>/dev/null; then
-    echo "You are not running on Linux Mint 18."
-    exit 1
-fi
 
 cat <<EOF &&
 This script will guide you through the installation of Linux Mint 18,
@@ -68,6 +64,19 @@ for, test it in a virtual machine first!
 EOF
 
 enter-to-continue &&
+
+
+# Not completely foolproof, but should do the job...
+if ! lsb_release -a 2>/dev/null | grep sarah &>/dev/null || ! type ubiquity &>/dev/null; then
+cat <<EOF
+
+
+You are not running on the Linux Mint 18 installer live USB. Cannot go
+any further.
+EOF
+    exit 1
+fi
+
 
 if [ -f '/sys/firmware/efi' ]; then
     FIRMWARE='uefi'
@@ -284,7 +293,7 @@ If you have an existing keyfile from a previous installation which can
 already be used to unlock the container, open another terminal now and
 copy it to ~/${KEYFILE}
 
-Otherwise, just press ENTER to continue.
+Otherwise, a new keyfile will be created.
 EOF
 
 enter-to-continue || fail
@@ -367,6 +376,10 @@ https://community.linuxmint.com/tutorial/view/2231
 https://community.linuxmint.com/tutorial/view/2061
 https://community.linuxmint.com/tutorial/view/2191
 
+For other scripts you can use to update the bootloader, or to fix
+things if you lose the ability to boot the system, see this script's
+repository at:
+https://github.com/CallumCameron/mint-encrypted-install
 EOF
 
 enter-to-continue || fail
