@@ -96,6 +96,27 @@ if ! yn-y "Is the firmware mode correct?"; then
 fi
 
 
+USE_TRIM=''
+echo
+echo
+if yn-n "Are you installing on an SSD (rather than a hard disk)?"; then
+    cat <<EOF
+
+You can choose to enable TRIM on your SSD. Doing this may improve
+performance, but at the cost of slightly reduced security. Read more
+at https://wiki.archlinux.org/index.php/Dm-crypt/Specialties, section
+'Discard/TRIM support for solid state drives (SSD)'.
+
+As indicated by the warnings on that page, check that your SSD
+actually supports TRIM before trying to enable it.
+
+EOF
+    if yn-n "Enable TRIM?"; then
+        USE_TRIM='t'
+    fi
+fi
+
+
 # Tutorial step 1
 cat <<EOF
 
@@ -311,19 +332,28 @@ sudo chmod -R go-rwx /mnt/boot &&
 
 
 echo "cp /${KEYFILE} \"\${DESTDIR}\"" | sudo tee /mnt/etc/initramfs-tools/hooks/crypto_keyfile &>/dev/null &&
-sudo chmod +x /mnt/etc/initramfs-tools/hooks/crypto_keyfile &&
+# shellcheck disable=SC2015
+sudo chmod +x /mnt/etc/initramfs-tools/hooks/crypto_keyfile || fail
 
-echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}") /${KEYFILE} luks,keyscript=/bin/cat" | sudo tee -a /mnt/etc/crypttab &>/dev/null &&
-
+if [ ! -z "${USE_TRIM}" ]; then
+    echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}") /${KEYFILE} luks,discard,keyscript=/bin/cat" | sudo tee -a /mnt/etc/crypttab &>/dev/null || fail
+else
+    echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}") /${KEYFILE} luks,keyscript=/bin/cat" | sudo tee -a /mnt/etc/crypttab &>/dev/null || fail
+fi
 
 sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u &&
 
 
 sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub &&
-sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub &&
 # shellcheck disable=SC2015
-sudo sed -i "s|GRUB_CMDLINE_LINUX=\"\"|GRUB_CMDLINE_LINUX=\"cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}")\"|" /mnt/etc/default/grub || fail
+sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub || fail
+
+if [ ! -z "${USE_TRIM}" ]; then
+    sudo sed -i "s|GRUB_CMDLINE_LINUX=\"\"|GRUB_CMDLINE_LINUX=\"cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}"):allow-discards\"|" /mnt/etc/default/grub || fail
+else
+    sudo sed -i "s|GRUB_CMDLINE_LINUX=\"\"|GRUB_CMDLINE_LINUX=\"cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}")\"|" /mnt/etc/default/grub || fail
+fi
 
 
 echo
