@@ -75,6 +75,8 @@ else
 fi
 
 
+sudo locale-gen --purge --no-archive &&
+# shellcheck disable=SC2015
 sudo update-initramfs -u || fail
 
 
