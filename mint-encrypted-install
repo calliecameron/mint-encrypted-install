@@ -406,6 +406,8 @@ sudo umount /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
 
 
 cat <<EOF &&
+
+
 Congratulations! The installation is now finished.
 
 You should now be able to reboot, and should be prompted for the
