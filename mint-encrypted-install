@@ -89,7 +89,7 @@ EOF
 fi
 
 
-if [ -f '/sys/firmware/efi' ]; then
+if [ -e '/sys/firmware/efi' ]; then
     FIRMWARE='uefi'
 else
     FIRMWARE='bios'

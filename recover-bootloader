@@ -68,13 +68,15 @@ EOF
 fi
 
 
-if [ -f '/sys/firmware/efi' ]; then
+if [ -e '/sys/firmware/efi' ]; then
     FIRMWARE='uefi'
 else
     FIRMWARE='bios'
 fi
 
 cat <<EOF
+
+
 Your firmware is '${FIRMWARE}'. If that doesn't sound right (i.e. you
 wanted to boot in UEFI mode but booted in BIOS mode instead), type 'n'
 at the prompt and reboot in the correct mode.
@@ -85,7 +87,7 @@ if ! yn-y "Is the firmware mode correct?"; then
     exit 0
 fi
 
-
+echo &&
 CRYPTPART="$(read-existing-path "Enter the name of the physical partition where your encrypted container is located; typically something like /dev/sda1, /dev/sda2, etc.")" &&
 echo &&
 
@@ -93,8 +95,19 @@ echo &&
 sudo cryptsetup open "${CRYPTPART}" "$(basename "${CRYPTPART}")_crypt" &&
 
 
+echo &&
 ROOTDEV="$(read-existing-path "Enter the path of the device where your root partition is located; using the example names from the installation script, this would be /dev/mapper/mint-root, but of course yours might be different.")" &&
 echo &&
+# shellcheck disable=SC2015
+BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically /dev/sda, /dev/sdb, or something similar")" || fail
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is ${BOOTLOADER}1, enter 1: " UEFINUMBER || fail
+    if [ -z "${UEFINUMBER}" ]; then
+        echo 'Invalid partition number'
+        fail
+    fi
+fi
 
 
 sudo mount "${ROOTDEV}" /mnt &&
@@ -106,7 +119,7 @@ sudo mount --bind /proc /mnt/proc &&
 sudo mount --bind /run /mnt/run || fail
 
 if [ "${FIRMWARE}" = 'uefi' ]; then
-    sudo mount "${UEFIBOOT}" /mnt/boot/efi || fail
+    sudo mount "${BOOTLOADER}${UEFINUMBER}" /mnt/boot/efi || fail
 fi
 
 
@@ -115,7 +128,6 @@ sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u || fail
 
 
-BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically /dev/sda, /dev/sdb, or something similar")"
 
 
 if [ "${FIRMWARE}" = 'bios' ]; then
@@ -124,12 +136,6 @@ if [ "${FIRMWARE}" = 'bios' ]; then
     # shellcheck disable=SC2015
     sudo chroot /mnt grub-install "${BOOTLOADER}" || fail
 elif [ "${FIRMWARE}" = 'uefi' ]; then
-    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is ${BOOTLOADER}1, enter 1: " UEFINUMBER || fail
-    if [ -z "${UEFINUMBER}" ]; then
-        echo 'Invalid partition number'
-        fail
-    fi
-
     sudo chroot /mnt update-grub &&
     sudo mkdir -p /mnt/boot/efi/EFI/mint &&
     sudo chroot /mnt grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
