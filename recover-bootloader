@@ -1,0 +1,152 @@
+#!/bin/bash
+
+function enter-to-continue() {
+    echo &&
+    read -r -p "Press ENTER to continue..." &&
+    echo &&
+    echo
+}
+
+function yn-y() {
+    # Y is the default
+    local REPLY
+    read -p "${1} [Y/n] " -r
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+function yn-n() {
+    # N is the default
+    local REPLY
+    read -p "${1} [y/N] " -r
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function read-existing-path() {
+    read -r -p "${1}: " name || fail
+    if [ -z "${name}" ] || [ ! -e "${name}" ]; then
+        echo "That file doesn't exist!" 1>&2
+        exit 1
+    else
+        echo "${name}"
+    fi
+}
+
+function fail() {
+    echo -e "\e[31mSomething went wrong!\e[0m"
+    exit 1
+}
+
+
+cat <<EOF
+This script will reinstall the bootloader from the Linux Mint 18
+installer live USB, if for some reason you can no longer boot your
+installed system.
+EOF
+
+if ! yn-n "Continue?"; then
+    exit 0
+fi
+
+
+# Not completely foolproof, but should do the job...
+if ! lsb_release -a 2>/dev/null | grep sarah &>/dev/null || ! type ubiquity &>/dev/null; then
+cat <<EOF
+
+
+You are not running on the Linux Mint 18 installer live USB. Cannot go
+any further.
+EOF
+    exit 1
+fi
+
+
+if [ -f '/sys/firmware/efi' ]; then
+    FIRMWARE='uefi'
+else
+    FIRMWARE='bios'
+fi
+
+cat <<EOF
+Your firmware is '${FIRMWARE}'. If that doesn't sound right (i.e. you
+wanted to boot in UEFI mode but booted in BIOS mode instead), type 'n'
+at the prompt and reboot in the correct mode.
+
+EOF
+
+if ! yn-y "Is the firmware mode correct?"; then
+    exit 0
+fi
+
+
+CRYPTPART="$(read-existing-path "Enter the name of the physical partition where your encrypted container is located; typically something like /dev/sda1, /dev/sda2, etc.")" &&
+echo &&
+
+
+sudo cryptsetup open "${CRYPTPART}" "$(basename "${CRYPTPART}")_crypt" &&
+
+
+ROOTDEV="$(read-existing-path "Enter the path of the device where your root partition is located; using the example names from the installation script, this would be /dev/mapper/mint-root, but of course yours might be different.")" &&
+echo &&
+
+
+sudo mount "${ROOTDEV}" /mnt &&
+sudo mount --bind /dev /mnt/dev &&
+sudo mount --bind /dev/pts /mnt/dev/pts &&
+sudo mount --bind /sys /mnt/sys &&
+sudo mount --bind /proc /mnt/proc &&
+# shellcheck disable=SC2015
+sudo mount --bind /run /mnt/run || fail
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    sudo mount "${UEFIBOOT}" /mnt/boot/efi || fail
+fi
+
+
+sudo chroot /mnt locale-gen --purge --no-archive &&
+# shellcheck disable=SC2015
+sudo chroot /mnt update-initramfs -u || fail
+
+
+BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically /dev/sda, /dev/sdb, or something similar")"
+
+
+if [ "${FIRMWARE}" = 'bios' ]; then
+    sudo chroot /mnt update-grub &&
+    sudo chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg &&
+    # shellcheck disable=SC2015
+    sudo chroot /mnt grub-install "${BOOTLOADER}" || fail
+elif [ "${FIRMWARE}" = 'uefi' ]; then
+    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is ${BOOTLOADER}1, enter 1: " UEFINUMBER || fail
+    if [ -z "${UEFINUMBER}" ]; then
+        echo 'Invalid partition number'
+        fail
+    fi
+
+    sudo chroot /mnt update-grub &&
+    sudo mkdir -p /mnt/boot/efi/EFI/mint &&
+    sudo chroot /mnt grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
+    echo "configfile \${cmdpath}/grub.cfg" | sudo tee /mnt/tmp/grub.cfg &>/dev/null &&
+    sudo chroot /mnt grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
+    # shellcheck disable=SC2015
+    sudo chroot /mnt efibootmgr -c -d "${BOOTLOADER}" -p "${UEFINUMBER}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+else
+    # Should never get here
+    fail
+fi
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    sudo umount /mnt/boot/efi || fail
+fi
+
+sudo umount /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
+
+
+echo 'Finished'
