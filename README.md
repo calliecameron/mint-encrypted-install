@@ -39,7 +39,9 @@ Boot the Mint live USB as normal. But instead of running the 'Install
 Linux Mint' launcher on the desktop, open a terminal and run the
 following commands:
 
-    wget https://raw.githubusercontent.com/callumcameron/mint-encrypted-install/master/mint-encrypted-install
+    sudo apt-get -y install git
+    git clone https://github.com/callumcameron/mint-encrypted-install
+    cd mint-encrypted-install
     ./mint-encrypted-install
 
 This will guide you through the rest of the process.
