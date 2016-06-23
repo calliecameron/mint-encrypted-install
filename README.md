@@ -18,7 +18,7 @@ an encrypted LUKS container, but this is only offered if you want to
 erase the whole disk (no dual boot), and also leaves the `/boot`
 partition unencrypted. If you want to encrypt everything including
 `/boot`, or want to install any sort of encrypted system alongside
-another OS for dual boot, you have to configure the bootloader and
+another OS for dual boot [1], you have to configure the bootloader and
 initramfs manually -- which is time-consuming and easy to get
 wrong. This script guides you through the process, and automates as
 many of the commands as possible, making it much easier to set up.
@@ -34,6 +34,12 @@ real machine.
 Note: Mint 18 itself is still in beta, so it maybe isn't a good idea
 to use this on a real machine just yet. I have tried it in various
 configurations in VirtualBox, and it seems to work fine there.
+
+[1] You can install multiple Linux systems *inside* the same encrypted
+container (using different logical volumes as `/`), and the bootloader
+will pick those up just fine. But if you want to dual-boot alongside
+something else (e.g. Windows), that has to use an unencrypted
+partition outside the container.
 
 
 Usage
