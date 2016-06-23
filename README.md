@@ -31,6 +31,10 @@ CAREFUL*. Typing anything wrong here could erase your hard drive! Make
 sure you test anything in a virtual machine before trying it on your
 real machine.
 
+Note: Mint 18 itself is still in beta, so it maybe isn't a good idea
+to use this on a real machine just yet. I have tried it in various
+configurations in VirtualBox, and it seems to work fine there.
+
 
 Usage
 -----
