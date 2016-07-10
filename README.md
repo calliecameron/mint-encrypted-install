@@ -31,10 +31,6 @@ CAREFUL*. Typing anything wrong here could erase your hard drive! Make
 sure you test anything in a virtual machine before trying it on your
 real machine.
 
-Note: Mint 18 itself is still in beta, so it maybe isn't a good idea
-to use this on a real machine just yet. I have tried it in various
-configurations in VirtualBox, and it seems to work fine there.
-
 [1] You can install multiple Linux systems *inside* the same encrypted
 container (using different logical volumes as `/`), and the bootloader
 will pick those up just fine. But if you want to dual-boot alongside
