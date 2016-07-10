@@ -106,6 +106,19 @@ if ! yn-y "Is the firmware mode correct?"; then
     exit 0
 fi
 
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    cat <<EOF
+To install with UEFI firmware, you must be connected to the
+internet. Please make sure you are connected to the internet before
+continuing. If you cannot connect, type 'n' at the prompt, and this
+script will exit.
+
+EOF
+    if ! yn-y "Are you connected to the internet?"; then
+        exit 0
+    fi
+fi
+
 
 USE_TRIM=''
 echo
