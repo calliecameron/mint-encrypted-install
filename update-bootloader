@@ -219,6 +219,7 @@ else
 fi
 
 cat <<EOF
+
 Finished - you may want to change the boot order using 'efibootmgr -o',
 and remember to run this script again if you update grub or the kernel.
 EOF
