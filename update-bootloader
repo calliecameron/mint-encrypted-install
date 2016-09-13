@@ -1,5 +1,18 @@
 #!/bin/bash
 
+SETTINGS_DIR="${HOME}/.mint-encrypted-install"
+
+function load-setting() {
+    # Returns empty string if file does not exist
+    cat "${SETTINGS_DIR}/${1}" 2>/dev/null
+}
+
+function save-setting() {
+    # shellcheck disable=SC2015
+    mkdir -p "${SETTINGS_DIR}" &&
+    echo "${2}" > "${SETTINGS_DIR}/${1}" || fail
+}
+
 function enter-to-continue() {
     echo &&
     read -r -p "Press ENTER to continue..." &&
@@ -68,6 +81,11 @@ EOF
 fi
 
 
+# Convenient place to get the sudo password, before asking for settings
+sudo true || fail
+echo
+
+
 if [ -e '/sys/firmware/efi' ]; then
     FIRMWARE='uefi'
 else
@@ -75,33 +93,126 @@ else
 fi
 
 
+# Load settings
+BOOT_DEVICE="$(load-setting boot-device)"
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    UEFI_PARTITION_NUM="$(load-setting uefi-partition-num)"
+    UEFI_BOOT_ENTRY="$(load-setting uefi-boot-entry)"
+fi
+
+
+# Check settings
+if [ ! -z "${BOOT_DEVICE}" ]; then
+    echo 'Block devices:'
+    lsblk
+    cat <<EOF
+
+Settings saved from last run:
+    Bootloader device: ${BOOT_DEVICE}
+EOF
+    if ! yn-y '    Is this correct?'; then
+        BOOT_DEVICE=''
+    fi
+    echo
+fi
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+     if [ ! -z "${UEFI_PARTITION_NUM}" ]; then
+         cat <<EOF
+    UEFI partition number on boot device: ${UEFI_PARTITION_NUM}
+EOF
+         if ! yn-y '    Is this correct?'; then
+             UEFI_PARTITION_NUM=''
+         fi
+         echo
+     fi
+
+     if [ ! -z "${UEFI_BOOT_ENTRY}" ]; then
+         cat <<EOF
+Valid options for UEFI boot entry are any of the four-digit hex
+numbers listed below:
+
+EOF
+         sudo efibootmgr
+         echo
+         cat <<EOF
+    UEFI boot entry: ${UEFI_BOOT_ENTRY}
+
+EOF
+         if ! yn-n '    Is this correct?'; then
+             UEFI_BOOT_ENTRY=''
+         fi
+         echo
+     fi
+fi
+
+
+# Get any missing settings
+if [ -z "${BOOT_DEVICE}" ]; then
+    echo 'Block devices:'
+    lsblk
+    echo
+    BOOT_DEVICE="$(read-existing-path "Enter the device on which the bootloader is installed; typically something like /dev/sda or /dev/sdb for hard drives, or /dev/nvme0n1 or /dev/nvme0n2 for NVME SSDs")"
+    if [ -z "${BOOT_DEVICE}" ]; then
+        fail
+    fi
+    save-setting boot-device "${BOOT_DEVICE}"
+    echo
+fi
+
+if [ "${FIRMWARE}" = 'uefi' ]; then
+    if [ -z "${UEFI_PARTITION_NUM}" ]; then
+        echo 'Block devices:'
+        lsblk
+        echo
+        read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is /dev/sda1 on a hard drive, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFI_PARTITION_NUM || fail
+        if [ -z "${UEFI_PARTITION_NUM}" ]; then
+            echo 'Invalid partition number'
+            fail
+        fi
+        save-setting uefi-partition-num "${UEFI_PARTITION_NUM}"
+        echo
+    fi
+
+    if [ -z "${UEFI_BOOT_ENTRY}" ]; then
+        echo "Existing boot entries are:"
+        echo
+        sudo efibootmgr
+        echo
+        read -r -p "Enter the four-digit hex number of an existing boot entry to update it, or leave this blank to create a new one: " UEFI_BOOT_ENTRY || fail
+        save-setting uefi-boot-entry "${UEFI_BOOT_ENTRY}"
+        echo
+    fi
+fi
+
+
+# Now actually start the update
 sudo locale-gen --purge --no-archive &&
 # shellcheck disable=SC2015
 sudo update-initramfs -u || fail
-
-
-BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically /dev/sda, /dev/sdb, or something similar")"
 
 
 if [ "${FIRMWARE}" = 'bios' ]; then
     sudo update-grub &&
     sudo grub-mkconfig -o /boot/grub/grub.cfg &&
     # shellcheck disable=SC2015
-    sudo grub-install "${BOOTLOADER}" || fail
+    sudo grub-install "${BOOT_DEVICE}" || fail
 elif [ "${FIRMWARE}" = 'uefi' ]; then
-    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is ${BOOTLOADER}1, enter 1: " UEFINUMBER || fail
-    if [ -z "${UEFINUMBER}" ]; then
-        echo 'Invalid partition number'
-        fail
-    fi
-
     sudo update-grub &&
     sudo mkdir -p /boot/efi/EFI/mint &&
     sudo grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
     echo "configfile \${cmdpath}/grub.cfg" | sudo tee /tmp/grub.cfg &>/dev/null &&
-    sudo grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
     # shellcheck disable=SC2015
-    sudo efibootmgr -c -d "${BOOTLOADER}" -p "${UEFINUMBER}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+    sudo grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v || fail
+
+    if [ -z "${UEFI_BOOT_ENTRY}" ]; then
+        # Create a new boot entry
+        sudo efibootmgr -c -d "${BOOT_DEVICE}" -p "${UEFI_PARTITION_NUM}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+    else
+        # Update an existing boot entry
+        sudo efibootmgr -b "${UEFI_BOOT_ENTRY}" -d "${BOOT_DEVICE}" -p "${UEFI_PARTITION_NUM}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
+    fi
 else
     # Should never get here
     fail
