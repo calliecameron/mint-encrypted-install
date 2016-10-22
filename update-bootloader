@@ -59,7 +59,7 @@ function fail() {
 
 
 cat <<EOF
-This script will update the iniramfs and bootloader, from inside a
+This script will update the initramfs and bootloader, from inside a
 running Mint installation previously set up using
 mint-encrypted-install.
 EOF
