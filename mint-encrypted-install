@@ -46,12 +46,12 @@ function fail() {
 
 
 cat <<EOF &&
-This script will guide you through the installation of Linux Mint 18,
-fully encrypted (including /boot) using LVM inside LUKS. This works
-for both single- and dual-boot setups, and machines with either BIOS
-or UEFI. You can use this either to set up encryption from scratch, or
-to install/reinstall another Linux inside an encrypted container you
-set up in a previous run of this script.
+This script will guide you through the installation of Linux Mint 18
+or 18.1, fully encrypted (including /boot) using LVM inside LUKS. This
+works for both single- and dual-boot setups, and machines with either
+BIOS or UEFI. You can use this either to set up encryption from
+scratch, or to install/reinstall another Linux inside an encrypted
+container you set up in a previous run of this script.
 
 You *MUST* be running this on the Mint live USB, before
 installing. Bad things could happen if you run this on an installed
@@ -78,12 +78,12 @@ enter-to-continue &&
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep sarah &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena' &>/dev/null || ! type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on the Linux Mint 18 installer live USB. Cannot go
-any further.
+You are not running on the Linux Mint 18 or 18.1 installer live
+USB. Cannot go any further.
 EOF
     exit 1
 fi
@@ -175,10 +175,12 @@ elif [ "${FIRMWARE}" = 'uefi' ]; then
 cat <<EOF
 Your firmware is UEFI:
  - you need to create a 512 MB partition with type 'EFI boot
-   partition' at the beginning of the disk, in addition to the
-   encrypted partition (if you are dual-booting, the previous OS may
-   have already done this). Take a note of the name of this partition
-   (e.g. something like /dev/sda1), you will need it later.
+   partition' or 'EFI system partition' (only one of these will be
+   offered) at the beginning of the disk, in addition to the encrypted
+   partition (if you are dual-booting, the previous OS may have
+   already done this). Take a note of the name of this partition
+   (e.g. something like /dev/sda1 for hard disks, or /dev/nvme0n1p1
+   for NVME SSDs), you will need it later.
 EOF
 else
     fail
@@ -188,8 +190,9 @@ cat <<EOF
 
 Click 'OK', wait for the encrypted partition to be created, and
 observe the name it is given - this will be something like
-'/dev/mapper/sda1_crypt', depending on the partition number used. Keep
-a note of this - you will need it later.
+'/dev/mapper/sda1_crypt' on a hard disk, or something like
+'/dev/mapper/nvme0n1p2_crypt' on an NVME SSD, depending on the
+partition number used. Keep a note of this - you will need it later.
 
 Click 'Back' to return to the 'Installation Type' page.
 
@@ -232,16 +235,16 @@ EOF
 enter-to-continue || fail
 
 
-CRYPTDEV="$(read-existing-path "Enter the name of the encrypted partition that you noted earlier; this will be something like /dev/mapper/sda1_crypt, but the number may be different. MAKE SURE this is right, or the next set of instructions will probably make you erase your drive!")"
+CRYPTDEV="$(read-existing-path "Enter the name of the encrypted partition that you noted earlier; this will be something like /dev/mapper/sda1_crypt or /dev/mapper/nvme0n1p2_crypt, but the number may be different. MAKE SURE this is right, or the next set of instructions will probably make you erase your drive!")"
 echo
 
-CRYPTPART="$(read-existing-path "Enter the name of the physical partition the encrypted container was created on; e.g. if the encrypted container is /dev/mapper/sda1_crypt, then this will be /dev/sda1 (i.e. the 'sda1' part matches)")"
+CRYPTPART="$(read-existing-path "Enter the name of the physical partition the encrypted container was created on; e.g. if the encrypted container is /dev/mapper/sda1_crypt, then this will be /dev/sda1 (i.e. the 'sda1' part matches), or if the encrypted container is /dev/mapper/nvme0n1p2_crypt, then this will be /dev/nvme0n1p2 (i.e. the 'nvme0n1p2' part matches)")"
 echo
 
 if [ "${FIRMWARE}" = 'uefi' ]; then
-    UEFIBOOT="$(read-existing-path "Enter the name of the UEFI boot partition that you noted earlier; this will be something like /dev/sda1")"
+    UEFIBOOT="$(read-existing-path "Enter the name of the UEFI boot partition that you noted earlier; this will be something like /dev/sda1 or /dev/nvme0n1p2")"
     echo
-    read -r -p "Enter the number of the UEFI boot partition that you noted earlier, e.g. if the partition is /dev/sda1, enter 1: " UEFINUMBER || fail
+    read -r -p "Enter the number of the UEFI boot partition that you noted earlier, e.g. if the partition is /dev/sda1 on a hard disk, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFINUMBER || fail
     if [ -z "${UEFINUMBER}" ]; then
         echo 'Invalid partition number'
         fail

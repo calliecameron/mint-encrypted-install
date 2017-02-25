@@ -70,12 +70,12 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep sarah &>/dev/null || type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena' &>/dev/null || type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on an installed Linux Mint 18 system. Cannot go
-any further.
+You are not running on an installed Linux Mint 18 or 18.1 system.
+Cannot go any further.
 EOF
     exit 1
 fi
@@ -206,6 +206,7 @@ elif [ "${FIRMWARE}" = 'uefi' ]; then
     # shellcheck disable=SC2015
     sudo grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v || fail
 
+    echo
     if [ -z "${UEFI_BOOT_ENTRY}" ]; then
         # Create a new boot entry
         sudo efibootmgr -c -d "${BOOT_DEVICE}" -p "${UEFI_PARTITION_NUM}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail

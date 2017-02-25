@@ -13,15 +13,16 @@ and
 credit goes to them for figuring out how to do it; I just made it into
 a script.
 
-The Linux Mint 18 installer has an option for installing on LVM inside
-an encrypted LUKS container, but this is only offered if you want to
-erase the whole disk (no dual boot), and also leaves the `/boot`
-partition unencrypted. If you want to encrypt everything including
-`/boot`, or want to install any sort of encrypted system alongside
-another OS for dual boot [1], you have to configure the bootloader and
-initramfs manually -- which is time-consuming and easy to get
-wrong. This script guides you through the process, and automates as
-many of the commands as possible, making it much easier to set up.
+The Linux Mint 18 or 18.1 installer has an option for installing on
+LVM inside an encrypted LUKS container, but this is only offered if
+you want to erase the whole disk (no dual boot), and also leaves the
+`/boot` partition unencrypted. If you want to encrypt everything
+including `/boot`, or want to install any sort of encrypted system
+alongside another OS for dual boot [1], you have to configure the
+bootloader and initramfs manually -- which is time-consuming and easy
+to get wrong. This script guides you through the process, and
+automates as many of the commands as possible, making it much easier
+to set up.
 
 This is still an advanced configuration, though, and assumes you are
 comfortable with the terminal, shell scripts, partitioning, LVM, and

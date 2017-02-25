@@ -46,9 +46,10 @@ function fail() {
 
 
 cat <<EOF
-This script will reinstall the bootloader from the Linux Mint 18
-installer live USB, if for some reason you can no longer boot your
-installed system.
+This script will reinstall the bootloader from the Linux Mint 18 or
+18.1 installer live USB, if for some reason you can no longer boot
+your installed system (make sure you use the Live USB that matches the
+version of the installed system).
 EOF
 
 if ! yn-n "Continue?"; then
@@ -57,12 +58,12 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep sarah &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena' &>/dev/null || ! type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on the Linux Mint 18 installer live USB. Cannot go
-any further.
+You are not running on the Linux Mint 18 or 18.1 installer live
+USB. Cannot go any further.
 EOF
     exit 1
 fi
@@ -88,7 +89,7 @@ if ! yn-y "Is the firmware mode correct?"; then
 fi
 
 echo &&
-CRYPTPART="$(read-existing-path "Enter the name of the physical partition where your encrypted container is located; typically something like /dev/sda1, /dev/sda2, etc.")" &&
+CRYPTPART="$(read-existing-path "Enter the name of the physical partition where your encrypted container is located; typically something like /dev/sda1, /dev/sda2, /dev/nvme0n1p2, etc.")" &&
 echo &&
 
 
@@ -99,10 +100,10 @@ echo &&
 ROOTDEV="$(read-existing-path "Enter the path of the device where your root partition is located; using the example names from the installation script, this would be /dev/mapper/mint-root, but of course yours might be different.")" &&
 echo &&
 # shellcheck disable=SC2015
-BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically /dev/sda, /dev/sdb, or something similar")" || fail
+BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically something like /dev/sda or /dev/sdb for hard drives, or /dev/nvme0n1 or /dev/nvme0n2 for NVME SSDs")" || fail
 
 if [ "${FIRMWARE}" = 'uefi' ]; then
-    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is ${BOOTLOADER}1, enter 1: " UEFINUMBER || fail
+    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is /dev/sda1 on a hard drive, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFINUMBER || fail
     if [ -z "${UEFINUMBER}" ]; then
         echo 'Invalid partition number'
         fail
