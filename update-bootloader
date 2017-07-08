@@ -70,11 +70,11 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena' &>/dev/null || type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya' &>/dev/null || type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on an installed Linux Mint 18 or 18.1 system.
+You are not running on an installed Linux Mint 18, 18.1 or 18.2 system.
 Cannot go any further.
 EOF
     exit 1

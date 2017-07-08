@@ -78,11 +78,11 @@ enter-to-continue &&
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena' &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya' &>/dev/null || ! type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on the Linux Mint 18 or 18.1 installer live
+You are not running on the Linux Mint 18, 18.1 or 18.2 installer live
 USB. Cannot go any further.
 EOF
     exit 1
@@ -228,6 +228,7 @@ EOF
 enter-to-continue || fail
 sh -c 'ubiquity -b gtk_ui' &
 
+# shellcheck disable=SC2015
 cat <<EOF &&
 Once you have done all that, press ENTER again to continue.
 EOF
@@ -252,6 +253,7 @@ if [ "${FIRMWARE}" = 'uefi' ]; then
 fi
 
 
+# shellcheck disable=SC2015
 # Tutorial step 2
 cat <<EOF &&
 
@@ -304,7 +306,6 @@ this terminal, and press ENTER to continue.
 Waiting for installer to finish...
 EOF
 
-# shellcheck disable=SC2015
 wait &&
 enter-to-continue || fail
 
@@ -332,6 +333,7 @@ if [ "${FIRMWARE}" = 'uefi' ]; then
     sudo chroot /mnt apt-get -y install grub-efi || fail
 fi
 
+# shellcheck disable=SC2015
 KEYFILE='crypto_keyfile.bin' &&
 
 cat <<EOF &&
@@ -418,6 +420,7 @@ if [ "${FIRMWARE}" = 'uefi' ]; then
     sudo umount /mnt/boot/efi || fail
 fi
 
+# shellcheck disable=SC2015
 sudo umount /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
 
 
