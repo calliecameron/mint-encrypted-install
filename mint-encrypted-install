@@ -46,12 +46,12 @@ function fail() {
 
 
 cat <<EOF &&
-This script will guide you through the installation of Linux Mint 18
-or 18.1, fully encrypted (including /boot) using LVM inside LUKS. This
-works for both single- and dual-boot setups, and machines with either
-BIOS or UEFI. You can use this either to set up encryption from
-scratch, or to install/reinstall another Linux inside an encrypted
-container you set up in a previous run of this script.
+This script will guide you through the installation of Linux Mint 18,
+18.1 or 18.2, fully encrypted (including /boot) using LVM inside
+LUKS. This works for both single- and dual-boot setups, and machines
+with either BIOS or UEFI. You can use this either to set up encryption
+from scratch, or to install/reinstall another Linux inside an
+encrypted container you set up in a previous run of this script.
 
 You *MUST* be running this on the Mint live USB, before
 installing. Bad things could happen if you run this on an installed
