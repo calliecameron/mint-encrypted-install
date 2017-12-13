@@ -70,7 +70,7 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya' &>/dev/null || type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya\|sylvia' &>/dev/null || type ubiquity &>/dev/null; then
 cat <<EOF
 
 
