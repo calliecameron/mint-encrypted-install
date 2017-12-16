@@ -46,10 +46,10 @@ function fail() {
 
 
 cat <<EOF
-This script will reinstall the bootloader from the Linux Mint 18, 18.1
-or 18.2 installer live USB, if for some reason you can no longer boot
-your installed system (make sure you use the Live USB that matches the
-version of the installed system).
+This script will reinstall the bootloader from the Linux Mint 18,
+18.1, 18.2 or 18.3 installer live USB, if for some reason you can no
+longer boot your installed system (make sure you use the Live USB that
+matches the version of the installed system).
 EOF
 
 if ! yn-n "Continue?"; then
@@ -62,8 +62,8 @@ if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya\|sylvia' &>/dev/nul
 cat <<EOF
 
 
-You are not running on the Linux Mint 18, 18.1 or 18.2 installer live
-USB. Cannot go any further.
+You are not running on the Linux Mint 18, 18.1, 18.2 or 18.3 installer
+live USB. Cannot go any further.
 EOF
     exit 1
 fi

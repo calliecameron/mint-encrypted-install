@@ -74,8 +74,8 @@ if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya\|sylvia' &>/dev/nul
 cat <<EOF
 
 
-You are not running on an installed Linux Mint 18, 18.1 or 18.2 system.
-Cannot go any further.
+You are not running on an installed Linux Mint 18, 18.1, 18.2 or 18.3
+system. Cannot go any further.
 EOF
     exit 1
 fi
