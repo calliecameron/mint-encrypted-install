@@ -132,7 +132,7 @@ INSTALLER_CONFIG='/lib/partman/check.d/07crypto_check_mountpoints'
 LINE="$(awk '/Is there a \/boot partition for encrypted root/ {print FNR}' "${INSTALLER_CONFIG}")"
 test -n "${LINE}" &&
 TMPFILE="$(mktemp)" &&
-head -n "${LINE}" > "${TMPFILE}" && # shellcheck: disable=SC2015
+head -n "${LINE}" "${INSTALLER_CONFIG}" > "${TMPFILE}" && # shellcheck: disable=SC2015
 sudo mv "${TMPFILE}" "${INSTALLER_CONFIG}" || fail
 
 
@@ -151,16 +151,17 @@ You now have two options, depending on what you want to do:
 1. Creating a new encrypted container (e.g. on a machine where you have never
 done this before)
 
-Use the installer to create a new partition with the desired properties, and
-set 'use as' to 'physical volume for encryption'.
+Make sure an EFI system partition exists.
+ - if you are dual-booting, this was probably already created by the previous
+   OS, in which case you don't need to do anything
+ - otherwise you need to create a 512 MB partition with type 'EFI system
+   partition' at the beginning of the disk.
+Take a note of the name of this partition (e.g. something like /dev/sda1 for
+hard disks, or /dev/nvme0n1p1 for NVME SSDs), you will need it later.
 
-Your firmware is UEFI:
- - you need to create a 512 MB partition with type 'EFI boot partition' or 'EFI
-   system partition' (only one of these will be offered) at the beginning of
-   the disk, in addition to the encrypted partition (if you are dual-booting,
-   the previous OS may have already done this). Take a note of the name of this
-   partition (e.g. something like /dev/sda1 for hard disks, or /dev/nvme0n1p1
-   for NVME SSDs), you will need it later.
+Now use the installer to create a new partition with the desired properties
+for the encrypted container, and set 'use as' to 'physical volume for
+encryption'.
 
 Click 'OK', wait for the encrypted partition to be created, and observe the
 name it is given - this will be something like '/dev/mapper/sda1_crypt' on a
