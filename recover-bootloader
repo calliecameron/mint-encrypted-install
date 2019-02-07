@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+echo 'Not yet updated to work with Mint 19 - do not use'
+exit 1
+
+
+
 function enter-to-continue() {
     echo &&
     read -r -p "Press ENTER to continue..." &&
