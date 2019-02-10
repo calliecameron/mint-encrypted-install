@@ -1,29 +1,5 @@
 #!/bin/bash
 
-
-echo 'Not yet updated to work with Mint 19 - do not use'
-exit 1
-
-
-
-function enter-to-continue() {
-    echo &&
-    read -r -p "Press ENTER to continue..." &&
-    echo &&
-    echo
-}
-
-function yn-y() {
-    # Y is the default
-    local REPLY
-    read -p "${1} [Y/n] " -r
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        return 1
-    else
-        return 0
-    fi
-}
-
 function yn-n() {
     # N is the default
     local REPLY
@@ -52,10 +28,10 @@ function fail() {
 
 
 cat <<EOF
-This script will reinstall the bootloader from the Linux Mint 18,
-18.1, 18.2 or 18.3 installer live USB, if for some reason you can no
-longer boot your installed system (make sure you use the Live USB that
-matches the version of the installed system).
+This script will reinstall the bootloader from the Linux Mint 19 or 19.1
+installer live USB, if for some reason you can no longer boot your installed
+system (make sure you use the Live USB that matches the version of the installed
+system).
 EOF
 
 if ! yn-n "Continue?"; then
@@ -64,34 +40,19 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'sarah\|serena\|sonya\|sylvia' &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'tara\|tessa' &>/dev/null || ! type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on the Linux Mint 18, 18.1, 18.2 or 18.3 installer
-live USB. Cannot go any further.
+You are not running on the Linux Mint 19 or 19.1 installer live USB. Cannot go
+any further.
 EOF
     exit 1
 fi
 
-
-if [ -e '/sys/firmware/efi' ]; then
-    FIRMWARE='uefi'
-else
-    FIRMWARE='bios'
-fi
-
-cat <<EOF
-
-
-Your firmware is '${FIRMWARE}'. If that doesn't sound right (i.e. you
-wanted to boot in UEFI mode but booted in BIOS mode instead), type 'n'
-at the prompt and reboot in the correct mode.
-
-EOF
-
-if ! yn-y "Is the firmware mode correct?"; then
-    exit 0
+if [ ! -e '/sys/firmware/efi' ]; then
+    echo 'Your firmware is BIOS. This script only supports UEFI. Cannot go any further.'
+    exit 1
 fi
 
 echo &&
@@ -108,12 +69,10 @@ echo &&
 # shellcheck disable=SC2015
 BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically something like /dev/sda or /dev/sdb for hard drives, or /dev/nvme0n1 or /dev/nvme0n2 for NVME SSDs")" || fail
 
-if [ "${FIRMWARE}" = 'uefi' ]; then
-    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is /dev/sda1 on a hard drive, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFINUMBER || fail
-    if [ -z "${UEFINUMBER}" ]; then
-        echo 'Invalid partition number'
-        fail
-    fi
+read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is /dev/sda1 on a hard drive, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFINUMBER || fail
+if [ -z "${UEFINUMBER}" ]; then
+    echo 'Invalid partition number'
+    fail
 fi
 
 
@@ -122,44 +81,16 @@ sudo mount --bind /dev /mnt/dev &&
 sudo mount --bind /dev/pts /mnt/dev/pts &&
 sudo mount --bind /sys /mnt/sys &&
 sudo mount --bind /proc /mnt/proc &&
-# shellcheck disable=SC2015
-sudo mount --bind /run /mnt/run || fail
-
-if [ "${FIRMWARE}" = 'uefi' ]; then
-    sudo mount "${BOOTLOADER}${UEFINUMBER}" /mnt/boot/efi || fail
-fi
-
+sudo mount --bind /run /mnt/run &&
+sudo mount "${BOOTLOADER}${UEFINUMBER}" /mnt/boot/efi &&
 
 sudo chroot /mnt locale-gen --purge --no-archive &&
-# shellcheck disable=SC2015
-sudo chroot /mnt update-initramfs -u || fail
+sudo chroot /mnt update-initramfs -u &&
 
+sudo chroot /mnt update-grub &&
+sudo chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Mint --boot-directory=/boot --modules="all_video boot btrfs cat chain configfile crypto cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio halt hfsplus iso9660 jpeg keystatus loadenv loopback linux linuxefi lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 test true verify video zfs zfscrypt zfsinfo" --recheck &&
 
-
-
-if [ "${FIRMWARE}" = 'bios' ]; then
-    sudo chroot /mnt update-grub &&
-    sudo chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg &&
-    # shellcheck disable=SC2015
-    sudo chroot /mnt grub-install "${BOOTLOADER}" || fail
-elif [ "${FIRMWARE}" = 'uefi' ]; then
-    sudo chroot /mnt update-grub &&
-    sudo mkdir -p /mnt/boot/efi/EFI/mint &&
-    sudo chroot /mnt grub-mkconfig -o /boot/efi/EFI/mint/grub.cfg &&
-    echo "configfile \${cmdpath}/grub.cfg" | sudo tee /mnt/tmp/grub.cfg &>/dev/null &&
-    sudo chroot /mnt grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --compress="xz" --modules="part_gpt part_msdos crypto cryptodisk luks disk diskfilter lvm" --fonts="unicode" -o "/boot/efi/EFI/mint/grubx64.efi"  "boot/grub/grub.cfg=/tmp/grub.cfg" -v &&
-    # shellcheck disable=SC2015
-    sudo chroot /mnt efibootmgr -c -d "${BOOTLOADER}" -p "${UEFINUMBER}" -L "Mint" -l "\EFI\mint\grubx64.efi" || fail
-else
-    # Should never get here
-    fail
-fi
-
-if [ "${FIRMWARE}" = 'uefi' ]; then
-    sudo umount /mnt/boot/efi || fail
-fi
-
-sudo umount /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
+sudo umount /mnt/boot/efi /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
 
 
 echo 'Finished'
