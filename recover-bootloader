@@ -66,15 +66,7 @@ sudo cryptsetup open "${CRYPTPART}" "$(basename "${CRYPTPART}")_crypt" &&
 echo &&
 ROOTDEV="$(read-existing-path "Enter the path of the device where your root partition is located; using the example names from the installation script, this would be /dev/mapper/mint-root, but of course yours might be different.")" &&
 echo &&
-# shellcheck disable=SC2015
-BOOTLOADER="$(read-existing-path "Enter the device on which the bootloader is installed; typically something like /dev/sda or /dev/sdb for hard drives, or /dev/nvme0n1 or /dev/nvme0n2 for NVME SSDs")" || fail
-
-read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is /dev/sda1 on a hard drive, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFINUMBER || fail
-if [ -z "${UEFINUMBER}" ]; then
-    echo 'Invalid partition number'
-    fail
-fi
-
+UEFIBOOT="$(read-existing-path "Enter the name of the UEFI boot partition; typically something like /dev/sda1 or /dev/sdb2 for hard drives, or /dev/nvme0n1p1 or /dev/nvme0n2p1 for NVME SSDs")" &&
 
 sudo mount "${ROOTDEV}" /mnt &&
 sudo mount --bind /dev /mnt/dev &&
@@ -82,7 +74,7 @@ sudo mount --bind /dev/pts /mnt/dev/pts &&
 sudo mount --bind /sys /mnt/sys &&
 sudo mount --bind /proc /mnt/proc &&
 sudo mount --bind /run /mnt/run &&
-sudo mount "${BOOTLOADER}${UEFINUMBER}" /mnt/boot/efi &&
+sudo mount "${UEFIBOOT}" /mnt/boot/efi &&
 
 sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u &&
