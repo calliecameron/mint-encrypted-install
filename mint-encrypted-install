@@ -300,7 +300,10 @@ sudo mount "${UEFIBOOT}" /mnt/boot/efi &&
 
 # Since we don't tell the installer to install a bootloader, it doesn't know
 # what kind we need. It therefore by default installs the packages for a bios
-# bootloader - but we need the efi ones instead.
+# bootloader - but we need the efi ones instead. We also have to make this
+# config change before installing the package, or the package installation
+# will fail.
+sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub
 sudo chroot /mnt apt-get update && # shellcheck: disable=SC2015
 sudo chroot /mnt apt-get -y install grub-efi || fail
 
@@ -315,7 +318,7 @@ sudo chmod 000 "/mnt/${KEYFILE}" &&
 sudo chmod -R go-rwx /mnt/boot &&
 
 sudo sed -i.bak 's/#CRYPTSETUP=/CRYPTSETUP=y/' /mnt/etc/cryptsetup-initramfs/conf-hook &&
-echo "KEYFILE_PATTERN=\"/mnt/${KEYFILE}\"" | sudo tee -a /mnt/etc/cryptsetup-initramfs/conf-hook && # shellcheck: disable=SC2015
+echo "KEYFILE_PATTERN=\"/${KEYFILE}\"" | sudo tee -a /mnt/etc/cryptsetup-initramfs/conf-hook && # shellcheck: disable=SC2015
 echo "UMASK=0077" | sudo tee -a /mnt/etc/initramfs-tools/initramfs.conf || fail
 
 if [ ! -z "${USE_TRIM}" ]; then
@@ -327,8 +330,7 @@ fi
 sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u &&
 
-sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub && # shellcheck: disable=SC2015
-sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub || fail
+sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub || fail
 
 if [ ! -z "${USE_TRIM}" ]; then
      sudo sed -i "s|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}"):allow-discards\"|" /mnt/etc/default/grub || fail
@@ -337,7 +339,6 @@ else
 fi
 
 sudo chroot /mnt update-grub &&
-sudo chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg &&
 sudo chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Mint --boot-directory=/boot --modules="all_video boot btrfs cat chain configfile crypto cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio halt hfsplus iso9660 jpeg keystatus loadenv loopback linux linuxefi lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 test true verify video zfs zfscrypt zfsinfo" --recheck &&
 
 sudo umount /mnt/boot/efi /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
