@@ -304,7 +304,12 @@ sudo mount "${UEFIBOOT}" /mnt/boot/efi &&
 # config change before installing the package, or the package installation
 # will fail.
 sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub
-sudo chroot /mnt apt-get update && # shellcheck: disable=SC2015
+sudo chroot /mnt apt-get update &&
+# On Mint 19 the version of ubuntu-system-adjustments that gets installed has
+# a bug that causes the following grub installation to fail. So we update it to
+# the latest version first. Mint 19.1 doesn't have this problem, but it does no
+# harm to check for updates there, too.
+sudo chroot /mnt apt-get -y install ubuntu-system-adjustments && # shellcheck: disable=SC2015
 sudo chroot /mnt apt-get -y install grub-efi || fail
 
 if [ -f "${HOME}/${KEYFILE}" ]; then
@@ -328,7 +333,7 @@ else
 fi
 
 sudo chroot /mnt locale-gen --purge --no-archive &&
-sudo chroot /mnt update-initramfs -u &&
+sudo chroot /mnt update-initramfs -u && # shellcheck: disable=SC2015
 
 sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub || fail
 
