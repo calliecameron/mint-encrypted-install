@@ -1,35 +1,5 @@
 #!/bin/bash
 
-SETTINGS_DIR="${HOME}/.mint-encrypted-install"
-
-function load-setting() {
-    # Returns empty string if file does not exist
-    cat "${SETTINGS_DIR}/${1}" 2>/dev/null
-}
-
-function save-setting() {
-    mkdir -p "${SETTINGS_DIR}" && # shellcheck: disable=SC2015
-    echo "${2}" > "${SETTINGS_DIR}/${1}" || fail
-}
-
-function enter-to-continue() {
-    echo &&
-    read -r -p "Press ENTER to continue..." &&
-    echo &&
-    echo
-}
-
-function yn-y() {
-    # Y is the default
-    local REPLY
-    read -p "${1} [Y/n] " -r
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        return 1
-    else
-        return 0
-    fi
-}
-
 function yn-n() {
     # N is the default
     local REPLY
@@ -38,16 +8,6 @@ function yn-n() {
         return 0
     else
         return 1
-    fi
-}
-
-function read-existing-path() {
-    read -r -p "${1}: " name || fail
-    if [ -z "${name}" ] || [ ! -e "${name}" ]; then
-        echo "That file doesn't exist!" 1>&2
-        exit 1
-    else
-        echo "${name}"
     fi
 }
 
@@ -81,69 +41,6 @@ fi
 if [ ! -e '/sys/firmware/efi' ]; then
     echo 'Your firmware is BIOS. This script only supports UEFI. Cannot go any further.'
     exit 1
-fi
-
-
-# Convenient place to get the sudo password, before asking for settings
-sudo true || fail
-echo
-
-
-# Load settings
-BOOT_DEVICE="$(load-setting boot-device)"
-UEFI_PARTITION_NUM="$(load-setting uefi-partition-num)"
-
-
-# Check settings
-if [ ! -z "${BOOT_DEVICE}" ]; then
-    echo 'Block devices:'
-    lsblk
-    cat <<EOF
-
-Settings saved from last run:
-    Bootloader device: ${BOOT_DEVICE}
-EOF
-    if ! yn-y '    Is this correct?'; then
-        BOOT_DEVICE=''
-    fi
-    echo
-fi
-
-if [ ! -z "${UEFI_PARTITION_NUM}" ]; then
-    cat <<EOF
-    UEFI partition number on boot device: ${UEFI_PARTITION_NUM}
-EOF
-    if ! yn-y '    Is this correct?'; then
-        UEFI_PARTITION_NUM=''
-    fi
-    echo
-fi
-
-
-# Get any missing settings
-if [ -z "${BOOT_DEVICE}" ]; then
-    echo 'Block devices:'
-    lsblk
-    echo
-    BOOT_DEVICE="$(read-existing-path "Enter the device on which the bootloader is installed; typically something like /dev/sda or /dev/sdb for hard drives, or /dev/nvme0n1 or /dev/nvme0n2 for NVME SSDs")"
-    if [ -z "${BOOT_DEVICE}" ]; then
-        fail
-    fi
-    save-setting boot-device "${BOOT_DEVICE}"
-    echo
-fi
-
-if [ -z "${UEFI_PARTITION_NUM}" ]; then
-    echo 'Block devices:'
-    lsblk
-    echo
-    read -r -p "Enter the number of the UEFI boot partition, e.g. if the partition is /dev/sda1 on a hard drive, enter 1, or /dev/nvme0n1p2 on an NVME SSD, enter 2: " UEFI_PARTITION_NUM || fail
-    if [ -z "${UEFI_PARTITION_NUM}" ]; then
-        echo 'Invalid partition number'
-        fail
-    fi
-    save-setting uefi-partition-num "${UEFI_PARTITION_NUM}"
-    echo
 fi
 
 
