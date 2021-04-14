@@ -361,7 +361,7 @@ https://community.linuxmint.com/tutorial/view/2061
 
 For other scripts you can use to update the bootloader, or to fix things if you
 lose the ability to boot the system, see this script's repository at:
-https://github.com/CallumCameron/mint-encrypted-install
+https://github.com/calliecameron/mint-encrypted-install
 EOF
 
 enter-to-continue || fail
