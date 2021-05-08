@@ -172,7 +172,8 @@ Create a new partition with the desired properties for the encrypted container
     sudo cryptsetup luksFormat --type luks1 /dev/<partition>
     sudo cryptsetup open /dev/<partition> <partition>_crypt
 
-Keep a note of the partition name - you will need it later.
+This will open the encrypted container on /dev/mapper/<partition>_crypt. Keep a
+note of this - you will need it later.
 
 Click 'Back' to return to the 'Installation Type' page.
 
