@@ -46,7 +46,7 @@ function fail() {
 
 
 cat <<EOF &&
-This script will guide you through the installation of Linux Mint 19 or 19.1,
+This script will guide you through the installation of Linux Mint 20.1,
 fully encrypted (including /boot) using LVM inside LUKS. This works for both
 single- and dual-boot setups. UEFI is required; it doesn't support BIOS. You
 can use this either to set up encryption from scratch, or to install/reinstall
@@ -73,11 +73,11 @@ enter-to-continue &&
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'tara\|tessa' &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'ulyssa' &>/dev/null || ! type ubiquity &>/dev/null; then
     cat <<EOF
 
 
-You are not running on the Linux Mint 19 or 19.1 installer live
+You are not running on the Linux Mint 20.1 installer live
 USB. Cannot go any further.
 EOF
     exit 1
@@ -130,14 +130,16 @@ fi
 # bottom of the config file, so we just remove them.
 INSTALLER_CONFIG='/lib/partman/check.d/07crypto_check_mountpoints'
 LINE="$(awk '/Is there a \/boot partition for encrypted root/ {print FNR}' "${INSTALLER_CONFIG}")"
+# shellcheck disable=SC2015
 test -n "${LINE}" &&
 TMPFILE="$(mktemp)" &&
-head -n "${LINE}" "${INSTALLER_CONFIG}" > "${TMPFILE}" && # shellcheck: disable=SC2015
+head -n "${LINE}" "${INSTALLER_CONFIG}" > "${TMPFILE}" &&
 sudo mv "${TMPFILE}" "${INSTALLER_CONFIG}" || fail
 
 
 # Tutorial step 2, part 1 - start the installer
 KEYFILE='crypto_keyfile.bin'
+# shellcheck disable=SC2015
 cat <<EOF &&
 
 
@@ -151,23 +153,26 @@ You now have two options, depending on what you want to do:
 1. Creating a new encrypted container (e.g. on a machine where you have never
 done this before)
 
+Leave the installer open and open a new terminal.
+
+Ensure appropriate partitions exist, e.g. using cfdisk (don't use the installer
+for this, it'll set up the encrypted partition incorrectly):
+
 Make sure an EFI system partition exists.
  - if you are dual-booting, this was probably already created by the previous
    OS, in which case you don't need to do anything
- - otherwise you need to create a 512 MB partition with type 'EFI system
-   partition' at the beginning of the disk.
+ - otherwise you need to create a 512 MB partition with type 'EFI System'
+   at the beginning of the disk.
 Take a note of the name of this partition (e.g. something like /dev/sda1 for
 hard disks, or /dev/nvme0n1p1 for NVME SSDs), you will need it later.
 
-Now use the installer to create a new partition with the desired properties
-for the encrypted container, and set 'use as' to 'physical volume for
-encryption'.
+Create a new partition with the desired properties for the encrypted container
+(type should be 'Linux filesystem'), and set up encryption:
 
-Click 'OK', wait for the encrypted partition to be created, and observe the
-name it is given - this will be something like '/dev/mapper/sda1_crypt' on a
-hard disk, or something like '/dev/mapper/nvme0n1p2_crypt' on an NVME SSD,
-depending on the partition number used. Keep a note of this - you will need it
-later.
+    sudo cryptsetup luksFormat --type luks1 /dev/<partition>
+    sudo cryptsetup open /dev/<partition> <partition>_crypt
+
+Keep a note of the partition name - you will need it later.
 
 Click 'Back' to return to the 'Installation Type' page.
 
@@ -208,6 +213,7 @@ EOF
 enter-to-continue || fail
 sh -c 'ubiquity -b gtk_ui' &
 
+# shellcheck disable=SC2015
 cat <<EOF &&
 Once you have done all that, press ENTER again to continue.
 EOF
@@ -232,6 +238,7 @@ fi
 
 # Differs from tutorial - the tutorial doesn't use LVM inside the container,
 # but we do
+# shellcheck disable=SC2015
 cat <<EOF &&
 
 
@@ -283,11 +290,12 @@ terminal, and press ENTER to continue.
 Waiting for installer to finish...
 EOF
 
-wait && # shellcheck: disable=SC2015
+wait &&
 enter-to-continue || fail
 
 
 # Tutorial step 3
+# shellcheck disable=SC2015
 ROOTDEV="$(read-existing-path "Enter the path of the device where you installed the root partition; using the example names this would be /dev/mapper/mint-root, but yours might be different. MAKE SURE this is right, or it will break your new installation!")" &&
 
 sudo mount "${ROOTDEV}" /mnt &&
@@ -303,48 +311,46 @@ sudo mount "${UEFIBOOT}" /mnt/boot/efi &&
 # bootloader - but we need the efi ones instead. We also have to make this
 # config change before installing the package, or the package installation
 # will fail.
-sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub
+sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub &&
 sudo chroot /mnt apt-get update &&
-# On Mint 19 the version of ubuntu-system-adjustments that gets installed has
-# a bug that causes the following grub installation to fail. So we update it to
-# the latest version first. Mint 19.1 doesn't have this problem, but it does no
-# harm to check for updates there, too.
-sudo chroot /mnt apt-get -y install ubuntu-system-adjustments && # shellcheck: disable=SC2015
 sudo chroot /mnt apt-get -y install grub-efi || fail
 
 if [ -f "${HOME}/${KEYFILE}" ]; then
     sudo cp "${HOME}/${KEYFILE}" "/mnt/${KEYFILE}" || fail
 else
-    sudo dd bs=512 count=4 if=/dev/urandom of="/mnt/${KEYFILE}" && # shellcheck: disable=SC2015
+    sudo dd bs=512 count=4 if=/dev/urandom of="/mnt/${KEYFILE}"
     sudo cryptsetup luksAddKey "${CRYPTPART}" "/mnt/${KEYFILE}" || fail
 fi
 
+# shellcheck disable=SC2015
 sudo chmod 000 "/mnt/${KEYFILE}" &&
 sudo chmod -R go-rwx /mnt/boot &&
 
 sudo sed -i.bak 's/#CRYPTSETUP=/CRYPTSETUP=y/' /mnt/etc/cryptsetup-initramfs/conf-hook &&
-echo "KEYFILE_PATTERN=\"/${KEYFILE}\"" | sudo tee -a /mnt/etc/cryptsetup-initramfs/conf-hook && # shellcheck: disable=SC2015
+echo "KEYFILE_PATTERN=\"/${KEYFILE}\"" | sudo tee -a /mnt/etc/cryptsetup-initramfs/conf-hook &&
 echo "UMASK=0077" | sudo tee -a /mnt/etc/initramfs-tools/initramfs.conf || fail
 
-if [ ! -z "${USE_TRIM}" ]; then
+if [ -n "${USE_TRIM}" ]; then
     echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}") /${KEYFILE} luks,discard" | sudo tee /mnt/etc/crypttab &>/dev/null || fail
 else
     echo "$(basename "${CRYPTDEV}") UUID=$(sudo blkid -s UUID -o value "${CRYPTPART}") /${KEYFILE} luks" | sudo tee /mnt/etc/crypttab &>/dev/null || fail
 fi
 
+# shellcheck disable=SC2015
 sudo chroot /mnt locale-gen --purge --no-archive &&
-sudo chroot /mnt update-initramfs -u && # shellcheck: disable=SC2015
+sudo chroot /mnt update-initramfs -u &&
 
 sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub || fail
 
-if [ ! -z "${USE_TRIM}" ]; then
+if [ -n "${USE_TRIM}" ]; then
      sudo sed -i "s|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}"):allow-discards\"|" /mnt/etc/default/grub || fail
 else
      sudo sed -i "s|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}")\"|" /mnt/etc/default/grub || fail
 fi
 
+# shellcheck disable=SC2015
 sudo chroot /mnt update-grub &&
-sudo chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Mint --boot-directory=/boot --modules="all_video boot btrfs cat chain configfile crypto cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio halt hfsplus iso9660 jpeg keystatus loadenv loopback linux linuxefi lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 test true verify video zfs zfscrypt zfsinfo" --recheck &&
+sudo chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --boot-directory=/boot --modules="all_video boot btrfs cat chain configfile crypto cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio halt hfsplus iso9660 jpeg keystatus loadenv loopback linux linuxefi lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 test true video zfs zfscrypt zfsinfo" --recheck &&
 
 sudo umount /mnt/boot/efi /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
 
