@@ -162,7 +162,7 @@ Make sure an EFI system partition exists.
  - if you are dual-booting, this was probably already created by the previous
    OS, in which case you don't need to do anything
  - otherwise you need to create a 512 MB partition with type 'EFI System'
-   at the beginning of the disk.
+   at the beginning of the disk, and format it using 'mkfs.fat'.
 Take a note of the name of this partition (e.g. something like /dev/sda1 for
 hard disks, or /dev/nvme0n1p1 for NVME SSDs), you will need it later.
 
