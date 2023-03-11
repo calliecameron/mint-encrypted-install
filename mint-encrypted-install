@@ -46,7 +46,7 @@ function fail() {
 
 
 cat <<EOF &&
-This script will guide you through the installation of Linux Mint 20.1,
+This script will guide you through the installation of Linux Mint 21.1,
 fully encrypted (including /boot) using LVM inside LUKS. This works for both
 single- and dual-boot setups. UEFI is required; it doesn't support BIOS. You
 can use this either to set up encryption from scratch, or to install/reinstall
@@ -73,11 +73,11 @@ enter-to-continue &&
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'ulyssa' &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'vera' &>/dev/null || ! type ubiquity &>/dev/null; then
     cat <<EOF
 
 
-You are not running on the Linux Mint 20.1 installer live
+You are not running on the Linux Mint 21.1 installer live
 USB. Cannot go any further.
 EOF
     exit 1
@@ -319,7 +319,7 @@ sudo chroot /mnt apt-get -y install grub-efi || fail
 if [ -f "${HOME}/${KEYFILE}" ]; then
     sudo cp "${HOME}/${KEYFILE}" "/mnt/${KEYFILE}" || fail
 else
-    sudo dd bs=512 count=4 if=/dev/urandom of="/mnt/${KEYFILE}"
+    sudo dd bs=512 count=4 if=/dev/urandom of="/mnt/${KEYFILE}" &&
     sudo cryptsetup luksAddKey "${CRYPTPART}" "/mnt/${KEYFILE}" || fail
 fi
 
@@ -327,7 +327,6 @@ fi
 sudo chmod 000 "/mnt/${KEYFILE}" &&
 sudo chmod -R go-rwx /mnt/boot &&
 
-sudo sed -i.bak 's/#CRYPTSETUP=/CRYPTSETUP=y/' /mnt/etc/cryptsetup-initramfs/conf-hook &&
 echo "KEYFILE_PATTERN=\"/${KEYFILE}\"" | sudo tee -a /mnt/etc/cryptsetup-initramfs/conf-hook &&
 echo "UMASK=0077" | sudo tee -a /mnt/etc/initramfs-tools/initramfs.conf || fail
 
@@ -341,7 +340,8 @@ fi
 sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u &&
 
-sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub || fail
+sudo sed -i.bak 's/GRUB_TIMEOUT_STYLE=hidden/GRUB_TIMEOUT_STYLE=menu/' /mnt/etc/default/grub &&
+sudo sed -i.bak 's/GRUB_TIMEOUT=0/GRUB_TIMEOUT=5/' /mnt/etc/default/grub || fail
 
 if [ -n "${USE_TRIM}" ]; then
      sudo sed -i "s|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash cryptdevice=${CRYPTPART}:$(basename "${CRYPTDEV}"):allow-discards\"|" /mnt/etc/default/grub || fail

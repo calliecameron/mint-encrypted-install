@@ -28,11 +28,11 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'ulyssa' &>/dev/null || type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'vera' &>/dev/null || type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on an installed Linux Mint 20.1 system. Cannot go any
+You are not running on an installed Linux Mint 21.1 system. Cannot go any
 further.
 EOF
     exit 1

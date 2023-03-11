@@ -28,7 +28,7 @@ function fail() {
 
 
 cat <<EOF
-This script will reinstall the bootloader from the Linux Mint 20.1
+This script will reinstall the bootloader from the Linux Mint 21.1
 installer live USB, if for some reason you can no longer boot your installed
 system (make sure you use the Live USB that matches the version of the installed
 system).
@@ -40,11 +40,11 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'ulyssa' &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'vera' &>/dev/null || ! type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on the Linux Mint 20.1 installer live USB. Cannot go
+You are not running on the Linux Mint 21.1 installer live USB. Cannot go
 any further.
 EOF
     exit 1

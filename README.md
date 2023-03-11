@@ -1,4 +1,4 @@
-# mint-encrypted-install for Linux Mint 20.1
+# mint-encrypted-install for Linux Mint 21.1
 
 This is a partially-automated version of [Naldi Stefano's
 tutorial](https://community.linuxmint.com/tutorial/view/2061), which was
@@ -9,7 +9,7 @@ and
 credit goes to them for figuring out how to do it; I just made it into
 a script.
 
-The Linux Mint 20.1 installer has an option for installing on LVM inside
+The Linux Mint 21.1 installer has an option for installing on LVM inside
 an encrypted LUKS container, but this is only offered if you want to erase
 the whole disk (no dual boot), and also leaves the `/boot` partition
 unencrypted. If you want to encrypt everything including `/boot`, or want to
@@ -53,12 +53,13 @@ two encrypted partitions are created, one for root and one for swap. In the
 script, we instead create one encrypted partition, set up LVM inside the
 partition, and create two logical volumes (one for root and one for swap). This
 is for backwards compatibility with the Mint 18 version of the script, so you
-can install Mint 20 on a machine previously set up by that version of the
+can install Mint 21 on a machine previously set up by that version of the
 script without having to repartition the drive - and also because in my
 use-case having LVM inside the encrypted partition is itself desirable.
 
 
-## Mint 18 and 19
+## Mint 18, 19 and 20
 
 The Mint 18 version of the script is on the 'mint-18' branch. The Mint 19
-version of the script is on the 'mint-19' branch.
+version of the script is on the 'mint-19' branch. The Mint 20 version of
+the script is on the 'mint-20' branch.
