@@ -28,7 +28,7 @@ function fail() {
 
 
 cat <<EOF
-This script will reinstall the bootloader from the Linux Mint 21.1
+This script will reinstall the bootloader from the Linux Mint 22.1
 installer live USB, if for some reason you can no longer boot your installed
 system (make sure you use the Live USB that matches the version of the installed
 system).
@@ -40,11 +40,11 @@ fi
 
 
 # Not completely foolproof, but should do the job...
-if ! lsb_release -a 2>/dev/null | grep 'vera' &>/dev/null || ! type ubiquity &>/dev/null; then
+if ! lsb_release -a 2>/dev/null | grep 'xia' &>/dev/null || ! type ubiquity &>/dev/null; then
 cat <<EOF
 
 
-You are not running on the Linux Mint 21.1 installer live USB. Cannot go
+You are not running on the Linux Mint 22.1 installer live USB. Cannot go
 any further.
 EOF
     exit 1
@@ -55,6 +55,7 @@ if [ ! -e '/sys/firmware/efi' ]; then
     exit 1
 fi
 
+# shellcheck disable=SC2015
 echo &&
 CRYPTPART="$(read-existing-path "Enter the name of the physical partition where your encrypted container is located; typically something like /dev/sda1, /dev/sda2, /dev/nvme0n1p2, etc.")" &&
 echo &&
@@ -80,9 +81,9 @@ sudo chroot /mnt locale-gen --purge --no-archive &&
 sudo chroot /mnt update-initramfs -u &&
 
 sudo chroot /mnt update-grub &&
-sudo chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --boot-directory=/boot --modules="all_video boot btrfs cat chain configfile crypto cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio halt hfsplus iso9660 jpeg keystatus loadenv loopback linux linuxefi lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 test true video zfs zfscrypt zfsinfo" --recheck &&
+sudo chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --boot-directory=/boot --modules="all_video boot btrfs cat chain configfile crypto cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio halt hfsplus iso9660 jpeg keystatus loadenv loopback linux lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 test true video zfs zfscrypt zfsinfo" --recheck || fail
 
-sudo umount /mnt/boot/efi /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt &&
+sudo umount /mnt/boot/efi /mnt/proc /mnt/dev/pts /mnt/dev /mnt/sys /mnt/run /mnt
 
 
 echo 'Finished'

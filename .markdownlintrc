@@ -1,0 +1,32 @@
+{
+    "heading-increment": false,
+    "heading-style": {
+        "style": "atx"
+    },
+    "ul-style": {
+        "style": "asterisk"
+    },
+    "line-length": false,
+    "no-duplicate-heading": false,
+    "single-title": false,
+    "no-trailing-punctuation": false,
+    "no-blanks-blockquote": false,
+    "hr-style": {
+        "style": "* * *"
+    },
+    "no-emphasis-as-heading": false,
+    "first-line-heading": false,
+    "no-alt-text": false,
+    "code-block-style": {
+        "style": "fenced"
+    },
+    "code-fence-style": {
+        "style": "backtick"
+    },
+    "emphasis-style": {
+        "style": "asterisk"
+    },
+    "strong-style": {
+        "style": "asterisk"
+    }
+}
