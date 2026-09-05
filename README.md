@@ -1,4 +1,6 @@
-# mint-encrypted-install for Linux Mint 22.1
+# This repository has [moved to Codeberg!](https://codeberg.org/calliecameron/mint-encrypted-install)
+
+## mint-encrypted-install for Linux Mint 22.1
 
 This is a partially-automated version of [Naldi Stefano's
 tutorial](https://community.linuxmint.com/tutorial/view/2061), which was
